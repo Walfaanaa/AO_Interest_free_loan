@@ -17,14 +17,15 @@ st.set_page_config(
 
 st.title("AO Interest-Free Loan Management App")
 
+# Excel file stored in the same GitHub repository
 DATA_FILE = "loan_free.xlsx"
 
-# Loan term = 12 months
+# Loan period = 12 months
 LOAN_TERM_MONTHS = 12
 
 
 # ============================================================
-# COLUMNS
+# REQUIRED COLUMNS
 # ============================================================
 
 COLUMNS = [
@@ -42,31 +43,40 @@ COLUMNS = [
 
 def load_data():
 
-    if os.path.exists(DATA_FILE):
+    if not os.path.exists(DATA_FILE):
 
-        try:
-
-            df = pd.read_excel(
-                DATA_FILE,
-                engine="openpyxl"
-            )
-
-        except Exception as e:
-
-            st.error(
-                f"Could not read {DATA_FILE}: {e}"
-            )
-
-            st.stop()
-
-    else:
-
-        df = pd.DataFrame(
-            columns=COLUMNS
+        st.error(
+            f"❌ {DATA_FILE} was not found."
         )
+
+        st.info(
+            "Make sure loan_free.xlsx is uploaded to the "
+            "same GitHub repository/folder as this application."
+        )
+
+        st.stop()
+
+    try:
+
+        df = pd.read_excel(
+            DATA_FILE,
+            engine="openpyxl"
+        )
+
+    except Exception as e:
+
+        st.error(
+            f"Could not read {DATA_FILE}: {e}"
+        )
+
+        st.stop()
 
     return df
 
+
+# ============================================================
+# LOAD DATA
+# ============================================================
 
 df = load_data()
 
@@ -106,9 +116,7 @@ if missing_columns:
 # KEEP ONLY REQUIRED COLUMNS
 # ============================================================
 
-df = df[
-    COLUMNS
-].copy()
+df = df[COLUMNS].copy()
 
 
 # ============================================================
@@ -170,7 +178,7 @@ df["Status"] = (
 
 
 # ============================================================
-# DATE FORMAT FUNCTION
+# DATE FORMAT
 # ============================================================
 
 def format_date(value):
@@ -271,7 +279,7 @@ if st.sidebar.button(
         )
 
     # --------------------------------------------------------
-    # Validate Loan Amount
+    # Validate Amount
     # --------------------------------------------------------
 
     elif loan_amount <= 0:
@@ -281,10 +289,6 @@ if st.sidebar.button(
         )
 
     else:
-
-        # ----------------------------------------------------
-        # Clean Name
-        # ----------------------------------------------------
 
         clean_name = loan_name.strip()
 
@@ -321,4 +325,376 @@ if st.sidebar.button(
             )
 
 
-        
+            # ------------------------------------------------
+            # New Loan
+            # ------------------------------------------------
+
+            new_row = {
+
+                "Name":
+                    clean_name,
+
+                "Disbursed_date":
+                    pd.Timestamp(
+                        disbursed_date
+                    ),
+
+                "loan_amount":
+                    float(
+                        loan_amount
+                    ),
+
+                "Due_date":
+                    pd.Timestamp(
+                        due_date
+                    ),
+
+                "Status":
+                    "In Progress"
+            }
+
+
+            # ------------------------------------------------
+            # Add to DataFrame
+            # ------------------------------------------------
+
+            df = pd.concat(
+                [
+                    df,
+                    pd.DataFrame(
+                        [new_row]
+                    )
+                ],
+                ignore_index=True
+            )
+
+
+            # ------------------------------------------------
+            # Save
+            # ------------------------------------------------
+
+            if save_data(df):
+
+                st.sidebar.success(
+                    f"Loan for {clean_name} saved successfully!"
+                )
+
+                st.rerun()
+
+
+# ============================================================
+# DASHBOARD
+# ============================================================
+
+st.subheader(
+    "📊 Loan Summary"
+)
+
+
+# ============================================================
+# STATUS DATA
+# ============================================================
+
+in_progress = df[
+    df["Status"]
+    .str.lower()
+    .eq("in progress")
+]
+
+
+returned = df[
+    df["Status"]
+    .str.lower()
+    .eq("returned")
+]
+
+
+# ============================================================
+# CURRENT DATE
+# ============================================================
+
+today = pd.Timestamp(
+    date.today()
+)
+
+
+# ============================================================
+# OVERDUE
+# ============================================================
+
+overdue = df[
+    (
+        df["Status"]
+        .str.lower()
+        .eq("in progress")
+    )
+    &
+    (
+        df["Due_date"]
+        < today
+    )
+]
+
+
+# ============================================================
+# METRICS
+# ============================================================
+
+col1, col2, col3, col4 = st.columns(4)
+
+
+col1.metric(
+    "Total Loans",
+    f"{len(df):,}"
+)
+
+
+col2.metric(
+    "In Progress",
+    f"{len(in_progress):,}"
+)
+
+
+col3.metric(
+    "Returned",
+    f"{len(returned):,}"
+)
+
+
+col4.metric(
+    "Overdue",
+    f"{len(overdue):,}"
+)
+
+
+# ============================================================
+# ALL LOANS
+# ============================================================
+
+st.subheader(
+    "📋 All Loans"
+)
+
+
+display_df = df.copy()
+
+
+# ============================================================
+# FORMAT DATES
+# ============================================================
+
+display_df[
+    "Disbursed_date"
+] = display_df[
+    "Disbursed_date"
+].apply(
+    format_date
+)
+
+
+display_df[
+    "Due_date"
+] = display_df[
+    "Due_date"
+].apply(
+    format_date
+)
+
+
+# ============================================================
+# FORMAT AMOUNT
+# ============================================================
+
+display_df[
+    "loan_amount"
+] = display_df[
+    "loan_amount"
+].apply(
+    lambda x:
+        f"{float(x):,.0f}"
+)
+
+
+# ============================================================
+# RENAME COLUMNS FOR DISPLAY
+# ============================================================
+
+display_df = display_df.rename(
+    columns={
+
+        "Disbursed_date":
+            "Disbursed Date",
+
+        "loan_amount":
+            "Loan Amount",
+
+        "Due_date":
+            "Due Date"
+    }
+)
+
+
+# ============================================================
+# DISPLAY ALL LOANS
+# ============================================================
+
+st.dataframe(
+    display_df[
+        [
+            "Name",
+            "Disbursed Date",
+            "Loan Amount",
+            "Due Date",
+            "Status"
+        ]
+    ],
+    use_container_width=True,
+    hide_index=True
+)
+
+
+# ============================================================
+# MARK LOAN AS RETURNED
+# ============================================================
+
+st.subheader(
+    "✅ Mark Loan as Returned"
+)
+
+
+if in_progress.empty:
+
+    st.info(
+        "There are no loans in progress."
+    )
+
+else:
+
+    # --------------------------------------------------------
+    # Select Name
+    # --------------------------------------------------------
+
+    selected_name = st.selectbox(
+        "Select Borrower",
+        in_progress["Name"].tolist()
+    )
+
+
+    # --------------------------------------------------------
+    # Mark Returned
+    # --------------------------------------------------------
+
+    if st.button(
+        "Mark as Returned",
+        type="primary"
+    ):
+
+        df.loc[
+            df["Name"] == selected_name,
+            "Status"
+        ] = "Returned"
+
+
+        # ----------------------------------------------------
+        # Save
+        # ----------------------------------------------------
+
+        if save_data(df):
+
+            st.success(
+                f"Loan for {selected_name} marked as Returned."
+            )
+
+            st.rerun()
+
+
+# ============================================================
+# OVERDUE LOANS
+# ============================================================
+
+st.subheader(
+    "⚠️ Overdue Loans"
+)
+
+
+overdue_display = df[
+    (
+        df["Status"]
+        .str.lower()
+        .eq("in progress")
+    )
+    &
+    (
+        df["Due_date"]
+        < today
+    )
+].copy()
+
+
+# ============================================================
+# NO OVERDUE LOANS
+# ============================================================
+
+if overdue_display.empty:
+
+    st.success(
+        "No overdue loans."
+    )
+
+
+# ============================================================
+# DISPLAY OVERDUE LOANS
+# ============================================================
+
+else:
+
+    overdue_display[
+        "Disbursed_date"
+    ] = overdue_display[
+        "Disbursed_date"
+    ].apply(
+        format_date
+    )
+
+
+    overdue_display[
+        "Due_date"
+    ] = overdue_display[
+        "Due_date"
+    ].apply(
+        format_date
+    )
+
+
+    overdue_display[
+        "loan_amount"
+    ] = overdue_display[
+        "loan_amount"
+    ].apply(
+        lambda x:
+            f"{float(x):,.0f}"
+    )
+
+
+    overdue_display = overdue_display.rename(
+        columns={
+
+            "Disbursed_date":
+                "Disbursed Date",
+
+            "loan_amount":
+                "Loan Amount",
+
+            "Due_date":
+                "Due Date"
+        }
+    )
+
+
+    st.dataframe(
+        overdue_display[
+            [
+                "Name",
+                "Disbursed Date",
+                "Loan Amount",
+
