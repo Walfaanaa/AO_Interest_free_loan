@@ -642,12 +642,17 @@ if overdue_display.empty:
     )
 
 
+```python
 # ============================================================
 # DISPLAY OVERDUE LOANS
 # ============================================================
 
 else:
 
+    # --------------------------------------------------------
+    # Format Disbursed Date
+    # --------------------------------------------------------
+
     overdue_display[
         "Disbursed_date"
     ] = overdue_display[
@@ -657,6 +662,10 @@ else:
     )
 
 
+    # --------------------------------------------------------
+    # Format Due Date
+    # --------------------------------------------------------
+
     overdue_display[
         "Due_date"
     ] = overdue_display[
@@ -665,6 +674,10 @@ else:
         format_date
     )
 
+
+    # --------------------------------------------------------
+    # Format Loan Amount
+    # --------------------------------------------------------
 
     overdue_display[
         "loan_amount"
@@ -675,6 +688,10 @@ else:
             f"{float(x):,.0f}"
     )
 
+
+    # --------------------------------------------------------
+    # Rename Columns
+    # --------------------------------------------------------
 
     overdue_display = overdue_display.rename(
         columns={
@@ -691,10 +708,23 @@ else:
     )
 
 
+    # --------------------------------------------------------
+    # Display Overdue Loans
+    # --------------------------------------------------------
+
     st.dataframe(
         overdue_display[
             [
                 "Name",
                 "Disbursed Date",
                 "Loan Amount",
+                "Due Date",
+                "Status"
+            ]
+        ],
+        use_container_width=True,
+        hide_index=True
+    )
+
+
 
